@@ -1,0 +1,14 @@
+{
+  "uuid": "ping@micahparker.com",
+  "name": "Ping Monitor",
+  "description": "Monitor ping times to 1.1.1.1 with a top bar indicator and time series chart",
+  "version": 1,
+  "shell-version": [
+    "45",
+    "46",
+    "47",
+    "48"
+  ],
+  "url": "https://github.com/micahparker/gnome-ping-extension",
+  "settings-schema": "org.gnome.shell.extensions.ping"
+}

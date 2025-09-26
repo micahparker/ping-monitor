@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist gettext-domain="gnome-shell-extensions">
+  <schema id="org.gnome.shell.extensions.ping" path="/org/gnome/shell/extensions/ping/">
+    <key name="panel-position" type="s">
+      <default>"right"</default>
+      <summary>Panel position</summary>
+      <description>Position of the ping indicator in the top panel (left or right)</description>
+      <choices>
+        <choice value="left"/>
+        <choice value="right"/>
+      </choices>
+    </key>
+    <key name="target-host" type="s">
+      <default>"1.1.1.1"</default>
+      <summary>Target host to ping</summary>
+      <description>The IP address or hostname to ping for network monitoring</description>
+    </key>
+    <key name="threshold-low" type="i">
+      <default>50</default>
+      <range min="1" max="1000"/>
+      <summary>Low ping threshold</summary>
+      <description>Ping times below this value (in ms) will be displayed in white</description>
+    </key>
+    <key name="threshold-medium" type="i">
+      <default>100</default>
+      <range min="1" max="2000"/>
+      <summary>Medium ping threshold</summary>
+      <description>Ping times above low but below this value (in ms) will be displayed in orange</description>
+    </key>
+    <key name="threshold-high" type="i">
+      <default>200</default>
+      <range min="1" max="5000"/>
+      <summary>High ping threshold</summary>
+      <description>Ping times above this value (in ms) will be displayed in red</description>
+    </key>
+  </schema>
+</schemalist>
