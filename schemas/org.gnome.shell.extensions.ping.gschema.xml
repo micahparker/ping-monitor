@@ -33,5 +33,10 @@
       <summary>High ping threshold</summary>
       <description>Ping times above this value (in ms) will be displayed in red</description>
     </key>
+    <key name="show-y-axis-labels" type="b">
+      <default>true</default>
+      <summary>Show Y-axis labels</summary>
+      <description>Display ping time values on the Y-axis of the chart</description>
+    </key>
   </schema>
 </schemalist>

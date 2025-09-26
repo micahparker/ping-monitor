@@ -33,6 +33,10 @@ class PingIndicator extends PanelMenu.Button {
         };
         this._updateThresholds();
 
+        // Cache display settings
+        this._showYAxisLabels = true;
+        this._updateDisplaySettings();
+
         // Create the top bar label
         this._label = new St.Label({
             text: '-- ms',
@@ -40,6 +44,9 @@ class PingIndicator extends PanelMenu.Button {
             y_align: Clutter.ActorAlign.CENTER
         });
         this.add_child(this._label);
+
+        // Manually create the menu
+        this.setMenu(new PopupMenu.PopupMenu(this, 0.0, St.Side.TOP));
 
         // Create popup menu with chart
         this._createMenu();
@@ -64,6 +71,17 @@ class PingIndicator extends PanelMenu.Button {
         }
     }
 
+    _updateDisplaySettings() {
+        if (this._settings) {
+            try {
+                this._showYAxisLabels = this._settings.get_boolean('show-y-axis-labels');
+            } catch (e) {
+                console.warn('[Ping Extension] Failed to get display settings, using defaults:', e);
+                // Keep default values if settings fail
+            }
+        }
+    }
+
     _connectThresholdListeners() {
         if (!this._settings) return;
 
@@ -77,11 +95,24 @@ class PingIndicator extends PanelMenu.Button {
             }),
             this._settings.connect('changed::threshold-high', () => {
                 this._updateThresholds();
+            }),
+            this._settings.connect('changed::show-y-axis-labels', () => {
+                this._updateDisplaySettings();
+                // Redraw chart if menu is open
+                if (this.menu?.isOpen && this._chartArea) {
+                    this._chartArea.queue_repaint();
+                }
             })
         ];
     }
 
     _createMenu() {
+        // Check if menu is available
+        if (!this.menu) {
+            console.error('[Ping Extension] Menu is not available yet');
+            return;
+        }
+
         // Destroy previous menu if it exists (like TodoIt does)
         if (this._chartBox) {
             this._chartBox.destroy();
@@ -305,24 +336,52 @@ class PingIndicator extends PanelMenu.Button {
         let chartMin = Math.max(0, minPing - padding);
         let chartMax = maxPing + padding;
 
+        // Calculate chart area dimensions (reserve space for y-axis labels if enabled)
+        let leftMargin = this._showYAxisLabels ? 50 : 10;
+        let chartWidth = width - leftMargin - 10; // 10px right margin
+        let chartHeight = height - 20; // 10px top and bottom margins
+        let chartX = leftMargin;
+        let chartY = 10;
+
         // Draw grid lines
         cr.setSourceRGBA(0.4, 0.4, 0.4, 0.5);
         cr.setLineWidth(0.5);
 
         // Horizontal grid lines (ping times)
         for (let i = 0; i <= 5; i++) {
-            let y = height * i / 5;
-            cr.moveTo(0, y);
-            cr.lineTo(width, y);
+            let y = chartY + (chartHeight * i / 5);
+            cr.moveTo(chartX, y);
+            cr.lineTo(chartX + chartWidth, y);
             cr.stroke();
         }
 
         // Vertical grid lines (time)
         for (let i = 0; i <= 10; i++) {
-            let x = width * i / 10;
-            cr.moveTo(x, 0);
-            cr.lineTo(x, height);
+            let x = chartX + (chartWidth * i / 10);
+            cr.moveTo(x, chartY);
+            cr.lineTo(x, chartY + chartHeight);
             cr.stroke();
+        }
+
+        // Draw Y-axis labels if enabled
+        if (this._showYAxisLabels) {
+            cr.setSourceRGBA(0.8, 0.8, 0.8, 1.0);
+            cr.selectFontFace('Sans', 0, 0); // Normal weight
+            cr.setFontSize(10);
+
+            for (let i = 0; i <= 5; i++) {
+                let value = chartMax - (i * (chartMax - chartMin) / 5);
+                let label = Math.round(value) + 'ms';
+                let y = chartY + (chartHeight * i / 5);
+
+                // Get text extents for alignment
+                let textExtents = cr.textExtents(label);
+                let textX = chartX - textExtents.width - 5;
+                let textY = y + (textExtents.height / 2);
+
+                cr.moveTo(textX, textY);
+                cr.showText(label);
+            }
         }
 
         // Draw ping line
@@ -333,11 +392,11 @@ class PingIndicator extends PanelMenu.Button {
         for (let i = 0; i < this._pingHistory.length; i++) {
             let ping = this._pingHistory[i];
 
-            let x = (i / (HISTORY_LENGTH - 1)) * width;
+            let x = chartX + (i / (HISTORY_LENGTH - 1)) * chartWidth;
 
             if (ping.success) {
                 let normalizedPing = (ping.pingTime - chartMin) / (chartMax - chartMin);
-                let y = height - (normalizedPing * height);
+                let y = chartY + chartHeight - (normalizedPing * chartHeight);
 
                 if (firstPoint) {
                     cr.moveTo(x, y);
@@ -354,8 +413,9 @@ class PingIndicator extends PanelMenu.Button {
         for (let i = 0; i < this._pingHistory.length; i++) {
             let ping = this._pingHistory[i];
             if (!ping.success) {
-                let x = (i / (HISTORY_LENGTH - 1)) * width;
-                cr.arc(x, height / 2, 3, 0, 2 * Math.PI);
+                let x = chartX + (i / (HISTORY_LENGTH - 1)) * chartWidth;
+                let y = chartY + chartHeight / 2; // Center vertically in chart area
+                cr.arc(x, y, 3, 0, 2 * Math.PI);
                 cr.fill();
             }
         }
