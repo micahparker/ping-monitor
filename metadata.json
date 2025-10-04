@@ -9,5 +9,5 @@
     "48"
   ],
   "url": "https://github.com/micahparker/ping-monitor",
-  "settings-schema": "org.gnome.shell.extensions.ping"
+  "settings-schema": "org.gnome.shell.extensions.ping-monitor"
 }

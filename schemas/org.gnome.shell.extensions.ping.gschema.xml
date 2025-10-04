@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <schemalist gettext-domain="gnome-shell-extensions">
-  <schema id="org.gnome.shell.extensions.ping" path="/org/gnome/shell/extensions/ping/">
+  <schema id="org.gnome.shell.extensions.ping-monitor" path="/org/gnome/shell/extensions/ping-monitor/">
     <key name="panel-position" type="s">
       <default>"right"</default>
       <summary>Panel position</summary>
@@ -11,7 +11,7 @@
       </choices>
     </key>
     <key name="target-host" type="s">
-      <default>"8.8.8.8"</default>
+      <default>"1.1.1.1"</default>
       <summary>Target host to ping</summary>
       <description>The IP address or hostname to ping for network monitoring</description>
     </key>

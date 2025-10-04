@@ -5,7 +5,7 @@ import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/ex
 
 export default class PingExtensionPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
-    const settings = this.getSettings('org.gnome.shell.extensions.ping');
+    const settings = this.getSettings('org.gnome.shell.extensions.ping-monitor');
 
     // Create a preferences page
     const page = new Adw.PreferencesPage({
