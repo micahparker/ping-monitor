@@ -12,18 +12,24 @@ import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 const PING_INTERVAL = 1000; // 1 second
 const HISTORY_LENGTH = 300; // 5 minutes at 1 second intervals
 
-const PingIndicator = GObject.registerClass(
-class PingIndicator extends PanelMenu.Button {
-    _init(settings) {
-        super._init(0.0, 'Ping Monitor', false);
-
-        this._settings = settings;
+export default class PingMonitorExtension extends Extension {
+    constructor(metadata) {
+        super(metadata);
+        
+        // Initialize references to null (GJS best practice) - following TodoIt pattern
+        this._settings = null;
+        this._button = null;
+        this._indicator = null;
+        this._settingsConnection = null;
         this._pingHistory = [];
         this._pingTimeout = null;
-        this._displayUpdateCounter = 0; // Counter for display updates
-        this._settingsConnection = null; // Track settings connection
-        this._menuOpenStateId = null; // Track menu state connection
-        this._thresholdConnections = []; // Track threshold setting connections
+        this._displayUpdateCounter = 0;
+        this._menuOpenStateId = null;
+        this._thresholdConnections = [];
+        this._label = null;
+        this._chartBox = null;
+        this._chartArea = null;
+        this._statsLabel = null;
         
         // Cache threshold values for performance
         this._thresholds = {
@@ -31,10 +37,23 @@ class PingIndicator extends PanelMenu.Button {
             medium: 100,
             high: 200
         };
-        this._updateThresholds();
 
         // Cache display settings
         this._showYAxisLabels = true;
+    }
+
+    enable() {
+        try {
+            this._settings = this.getSettings('org.gnome.shell.extensions.ping');
+        } catch (e) {
+            console.error('[Ping Extension] Failed to load settings:', e);
+            this._settings = null;
+        }
+
+        // Create button like TodoIt does - not extending PanelMenu.Button
+        this._button = new PanelMenu.Button(0.0, 'Ping Monitor', false);
+        
+        this._updateThresholds();
         this._updateDisplaySettings();
 
         // Create the top bar label
@@ -43,19 +62,44 @@ class PingIndicator extends PanelMenu.Button {
             style_class: 'panel-button',
             y_align: Clutter.ActorAlign.CENTER
         });
-        this.add_child(this._label);
+        this._button.add_child(this._label);
 
-        // Manually create the menu
-        this.setMenu(new PopupMenu.PopupMenu(this, 0.0, St.Side.TOP));
+        // Set indicator reference like TodoIt
+        this._indicator = this._button;
+        
+        // Add to panel with proper error handling
+        this._addToPanel();
 
-        // Create popup menu with chart
-        this._createMenu();
+        // Create popup menu with chart (using built-in menu like TodoIt)
+        this._buildPopupMenu();
 
         // Connect threshold change listeners
         this._connectThresholdListeners();
 
         // Start ping monitoring
         this._startPingMonitoring();
+
+        // Listen for position changes only if settings are available
+        this._settingsConnection = null;
+        if (this._settings) {
+            try {
+                this._settingsConnection = this._settings.connect('changed::panel-position', () => {
+                    // Use a safer repositioning approach
+                    GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
+                        if (this._indicator && this._settings) {
+                            // Instead of complex repositioning, just recreate cleanly
+                            if (Main.panel.statusArea[this.uuid]) {
+                                delete Main.panel.statusArea[this.uuid];
+                            }
+                            this._addToPanel();
+                        }
+                        return GLib.SOURCE_REMOVE;
+                    });
+                });
+            } catch (e) {
+                console.error('[Ping Extension] Failed to connect to panel-position settings:', e);
+            }
+        }
     }
 
     _updateThresholds() {
@@ -66,7 +110,6 @@ class PingIndicator extends PanelMenu.Button {
                 this._thresholds.high = this._settings.get_int('threshold-high');
             } catch (e) {
                 console.warn('[Ping Extension] Failed to get thresholds, using defaults:', e);
-                // Keep default values if settings fail
             }
         }
     }
@@ -77,7 +120,6 @@ class PingIndicator extends PanelMenu.Button {
                 this._showYAxisLabels = this._settings.get_boolean('show-y-axis-labels');
             } catch (e) {
                 console.warn('[Ping Extension] Failed to get display settings, using defaults:', e);
-                // Keep default values if settings fail
             }
         }
     }
@@ -85,41 +127,38 @@ class PingIndicator extends PanelMenu.Button {
     _connectThresholdListeners() {
         if (!this._settings) return;
 
-        // Store connection IDs for proper cleanup
-        this._thresholdConnections = [
-            this._settings.connect('changed::threshold-low', () => {
-                this._updateThresholds();
-            }),
-            this._settings.connect('changed::threshold-medium', () => {
-                this._updateThresholds();
-            }),
-            this._settings.connect('changed::threshold-high', () => {
-                this._updateThresholds();
-            }),
-            this._settings.connect('changed::show-y-axis-labels', () => {
-                this._updateDisplaySettings();
-                // Redraw chart if menu is open
-                if (this.menu?.isOpen && this._chartArea) {
-                    this._chartArea.queue_repaint();
-                }
-            })
-        ];
+        try {
+            this._thresholdConnections = [
+                this._settings.connect('changed::threshold-low', () => {
+                    if (this._settings) this._updateThresholds();
+                }),
+                this._settings.connect('changed::threshold-medium', () => {
+                    if (this._settings) this._updateThresholds();
+                }),
+                this._settings.connect('changed::threshold-high', () => {
+                    if (this._settings) this._updateThresholds();
+                }),
+                this._settings.connect('changed::show-y-axis-labels', () => {
+                    if (this._settings) this._updateDisplaySettings();
+                })
+            ];
+        } catch (e) {
+            console.error('[Ping Extension] Failed to connect threshold listeners:', e);
+            this._thresholdConnections = [];
+        }
     }
 
-    _createMenu() {
-        // Check if menu is available
-        if (!this.menu) {
-            console.error('[Ping Extension] Menu is not available yet');
-            return;
-        }
+    _buildPopupMenu() {
+        // Clear any existing menu content (like TodoIt does)
+        this._button.menu.removeAll();
 
-        // Destroy previous menu if it exists (like TodoIt does)
+        // Destroy previous menu components if they exist (like TodoIt does)
         if (this._chartBox) {
             this._chartBox.destroy();
             this._chartBox = null;
         }
 
-        // Create a scrollable area for the chart
+        // Create main box layout (like TodoIt's mainBox)
         this._chartBox = new St.BoxLayout({
             orientation: Clutter.Orientation.VERTICAL,
             style: 'padding: 10px; min-width: 400px; min-height: 250px;',
@@ -150,23 +189,89 @@ class PingIndicator extends PanelMenu.Button {
         });
         this._chartBox.add_child(this._statsLabel);
 
-        // Use PopupMenuSection instead for better menu behavior
-        let menuSection = new PopupMenu.PopupMenuSection();
-        menuSection.actor.add_child(this._chartBox);
-        this.menu.addMenuItem(menuSection);
+        // Add the main box to the menu (like TodoIt does)
+        this._button.menu.box.add_child(this._chartBox);
 
         // Connect menu open/close events for proper behavior
-        this._menuOpenStateId = this.menu.connect('open-state-changed', (menu, open) => {
+        this._menuOpenStateId = this._button.menu.connect('open-state-changed', (menu, open) => {
             if (open && this._chartArea) {
                 // Menu opened - redraw chart
                 this._chartArea.queue_repaint();
+                this._updateStats();
             }
         });
     }
 
+    _addToPanel() {
+        if (!this._indicator) return;
+
+        try {
+            // Get panel position from settings, with fallback
+            let position = 'right'; // default
+            if (this._settings) {
+                try {
+                    position = this._settings.get_string('panel-position');
+                } catch (e) {
+                    console.warn('[Ping Extension] Failed to get panel-position, using default:', e);
+                }
+            }
+
+            // Use simple but position-aware approach (avoid complex cleanup that breaks the indicator)
+            Main.panel.addToStatusArea(this.uuid, this._indicator, 0, position);
+        } catch (e) {
+            console.error('[Ping Extension] Failed to add to panel:', e);
+        }
+    }
+
+    _repositionIndicator() {
+        if (!this._indicator || !this._settings) {
+            return;
+        }
+
+        try {
+            // Get the new position from settings
+            let newPosition = this._settings.get_string('panel-position') || 'right';
+            
+            // Get current position if it exists in status area
+            let currentPosition = null;
+            if (Main.panel.statusArea[this.uuid]) {
+                // Check which panel section contains our indicator
+                if (Main.panel._leftBox.get_children().includes(this._indicator)) {
+                    currentPosition = 'left';
+                } else if (Main.panel._centerBox.get_children().includes(this._indicator)) {
+                    currentPosition = 'center';
+                } else if (Main.panel._rightBox.get_children().includes(this._indicator)) {
+                    currentPosition = 'right';
+                }
+            }
+
+            // Only reposition if the position actually changed
+            if (currentPosition !== newPosition) {
+                console.log(`[Ping Extension] Repositioning from ${currentPosition} to ${newPosition}`);
+                
+                // Remove from status area cleanly
+                if (Main.panel.statusArea[this.uuid]) {
+                    delete Main.panel.statusArea[this.uuid];
+                }
+                
+                // Remove from current parent
+                const currentParent = this._indicator.get_parent();
+                if (currentParent) {
+                    currentParent.remove_child(this._indicator);
+                }
+                
+                // Add to new position
+                Main.panel.addToStatusArea(this.uuid, this._indicator, 0, newPosition);
+                console.log('[Ping Extension] Successfully repositioned to:', newPosition);
+            }
+        } catch (e) {
+            console.error('[Ping Extension] Failed to reposition indicator:', e);
+            // Don't try to recover, just log the error to prevent crashes
+        }
+    }
+
     _startPingMonitoring() {
         this._pingTimeout = GLib.timeout_add(GLib.PRIORITY_DEFAULT, PING_INTERVAL, () => {
-            // Check if extension is still active before continuing
             if (!this._label || !this._pingHistory) {
                 return GLib.SOURCE_REMOVE;
             }
@@ -177,104 +282,179 @@ class PingIndicator extends PanelMenu.Button {
     }
 
     _performPing() {
-        // Early return if component is being destroyed
         if (!this._label || !this._pingHistory) {
             return;
         }
 
         try {
-            // Get target host with fallback to default
-            let targetHost = '1.1.1.1'; // default
+            let targetHost = '8.8.8.8'; // default
             if (this._settings) {
                 try {
-                    targetHost = this._settings.get_string('target-host');
+                    targetHost = this._settings.get_string('target-host') || '8.8.8.8';
                 } catch (e) {
                     console.warn('[Ping Extension] Failed to get target-host, using default:', e);
                 }
             }
 
+            const startTime = GLib.get_monotonic_time();
+            
+            // Simple ping using subprocess
             let proc = Gio.Subprocess.new(
                 ['ping', '-c', '1', '-W', '2', targetHost],
                 Gio.SubprocessFlags.STDOUT_PIPE | Gio.SubprocessFlags.STDERR_PIPE
             );
 
             proc.communicate_utf8_async(null, null, (proc, result) => {
-                // Check if component still exists before processing result
-                if (!this._label || !this._pingHistory) {
-                    return;
-                }
+                if (!this._label || !this._pingHistory) return;
 
                 try {
                     let [, stdout, stderr] = proc.communicate_utf8_finish(result);
                     let success = proc.get_successful();
-
+                    
                     if (success && stdout) {
-                        let match = stdout.match(/time=([0-9.]+)/);
+                        // Parse ping time from output
+                        let match = stdout.match(/time=([0-9.]+)\s*ms/);
                         if (match) {
                             let pingTime = parseFloat(match[1]);
                             this._addPingData(pingTime, true);
-                            return;
+                            this._updateDisplay(pingTime);
+                        } else {
+                            this._addPingData(null, false);
+                            this._updateDisplay(null);
                         }
+                    } else {
+                        this._addPingData(null, false);
+                        this._updateDisplay(null);
                     }
-
-                    // If we get here, ping failed
-                    this._addPingData(null, false);
                 } catch (e) {
-                    console.warn('[Ping Extension] Error processing ping result:', e);
+                    console.warn('[Ping Extension] Ping process error:', e);
                     this._addPingData(null, false);
+                    this._updateDisplay(null);
                 }
             });
+
         } catch (e) {
-            console.warn('[Ping Extension] Error starting ping process:', e);
+            console.error('[Ping Extension] Failed to start ping process:', e);
             this._addPingData(null, false);
+            this._updateDisplay(null);
         }
     }
 
     _addPingData(pingTime, success) {
-        let timestamp = Date.now();
+        if (!this._pingHistory) return;
 
         this._pingHistory.push({
-            timestamp: timestamp,
+            time: GLib.get_monotonic_time() / 1000,
             pingTime: pingTime,
             success: success
         });
 
-        // Keep only last HISTORY_LENGTH entries
-        if (this._pingHistory.length > HISTORY_LENGTH) {
+        // Keep only recent history
+        while (this._pingHistory.length > HISTORY_LENGTH) {
             this._pingHistory.shift();
         }
 
-        // Increment display counter
-        this._displayUpdateCounter++;
-
-        // Update top bar display only every 5 seconds (every 5th ping)
-        if (this._displayUpdateCounter >= 5) {
-            this._displayUpdateCounter = 0; // Reset counter
-            
-            if (success && pingTime !== null) {
-                this._label.text = `${Math.round(pingTime)}ms`;
-                
-                // Color code based on configurable thresholds
-                if (pingTime <= this._thresholds.low) {
-                    this._label.style_class = 'ping-low ping-panel-label';
-                } else if (pingTime <= this._thresholds.medium) {
-                    this._label.style_class = 'ping-medium ping-panel-label';
-                } else {
-                    this._label.style_class = 'ping-high ping-panel-label';
-                }
-            } else {
-                this._label.text = '-';
-                this._label.style_class = 'ping-failed ping-panel-label';
-            }
-        }
-
-        // Update stats
-        this._updateStats();
-
-        // Redraw chart if menu is open
-        if (this.menu?.isOpen && this._chartArea) {
+        // Update chart and stats if they exist
+        if (this._chartArea) {
             this._chartArea.queue_repaint();
         }
+        this._updateStats();
+    }
+
+    _updateDisplay(pingTime) {
+        if (!this._label) return;
+
+        try {
+            if (pingTime !== null) {
+                let color = this._getPingColor(pingTime);
+                this._label.set_text(`${Math.round(pingTime)}ms`);
+                this._label.set_style(`color: ${color};`);
+            } else {
+                this._label.set_text('--ms');
+                this._label.set_style('color: #ff4444;');
+            }
+        } catch (e) {
+            console.error('[Ping Extension] Failed to update display:', e);
+        }
+    }
+
+    _getPingColor(pingTime) {
+        if (pingTime <= this._thresholds.low) {
+            return '#44ff44'; // green
+        } else if (pingTime <= this._thresholds.medium) {
+            return '#ffff44'; // yellow  
+        } else if (pingTime <= this._thresholds.high) {
+            return '#ff8844'; // orange
+        } else {
+            return '#ff4444'; // red
+        }
+    }
+
+    disable() {
+        // Stop ping monitoring
+        if (this._pingTimeout) {
+            GLib.source_remove(this._pingTimeout);
+            this._pingTimeout = null;
+        }
+
+        // Disconnect threshold listeners
+        this._thresholdConnections.forEach(id => {
+            if (this._settings) {
+                this._settings.disconnect(id);
+            }
+        });
+        this._thresholdConnections = [];
+
+        // Disconnect settings signal handler
+        if (this._settingsConnection && this._settings) {
+            this._settings.disconnect(this._settingsConnection);
+            this._settingsConnection = null;
+        }
+
+        // Destroy UI components with proper cleanup like TodoIt
+        if (this._indicator) {
+            if (this._menuOpenStateId && this._button?.menu) {
+                this._button.menu.disconnect(this._menuOpenStateId);
+                this._menuOpenStateId = null;
+            }
+
+            if (this._chartArea) {
+                this._chartArea.destroy();
+                this._chartArea = null;
+            }
+
+            if (this._chartBox) {
+                this._chartBox.destroy();
+                this._chartBox = null;
+            }
+
+            if (this._statsLabel) {
+                this._statsLabel.destroy();
+                this._statsLabel = null;
+            }
+
+            if (this._label) {
+                this._label.destroy();
+                this._label = null;
+            }
+
+            // Clear ping history to prevent memory leaks
+            this._pingHistory = [];
+
+            // Remove from status area and cleanup properly
+            if (Main.panel.statusArea[this.uuid]) {
+                delete Main.panel.statusArea[this.uuid];
+            }
+
+            // Finally destroy the main indicator
+            this._indicator.destroy();
+            this._indicator = null;
+        }
+
+        // Clear all references (GJS best practice) like TodoIt
+        this._settings = null;
+        this._settingsConnection = null;
+        this._button = null;
     }
 
     _updateStats() {
@@ -419,197 +599,5 @@ class PingIndicator extends PanelMenu.Button {
                 cr.fill();
             }
         }
-    }
-
-    destroy() {
-        // Stop ping monitoring first
-        if (this._pingTimeout) {
-            GLib.source_remove(this._pingTimeout);
-            this._pingTimeout = null;
-        }
-
-        // Clear any remaining ping data
-        this._pingHistory = [];
-
-        // Disconnect threshold listeners
-        if (this._settings && this._thresholdConnections) {
-            this._thresholdConnections.forEach(id => {
-                this._settings.disconnect(id);
-            });
-            this._thresholdConnections = [];
-        }
-
-        // Clean up references
-        if (this._settings) {
-            this._settings = null;
-        }
-
-        // Call parent destroy
-        super.destroy();
-    }
-});
-
-export default class PingExtension extends Extension {
-    constructor(metadata) {
-        super(metadata);
-        
-        // Initialize references to null (GJS best practice)
-        this._settings = null;
-        this._indicator = null;
-        this._settingsConnection = null;
-    }
-
-    enable() {
-        try {
-            this._settings = this.getSettings('org.gnome.shell.extensions.ping');
-        } catch (e) {
-            console.error('[Ping Extension] Failed to load settings:', e);
-            // Use defaults if settings fail to load
-            this._settings = null;
-        }
-
-        this._indicator = new PingIndicator(this._settings);
-
-        // Add to panel with proper error handling
-        this._addToPanel();
-
-        // Listen for position changes only if settings are available
-        this._settingsConnection = null;
-        if (this._settings) {
-            this._settingsConnection = this._settings.connect('changed::panel-position', () => {
-                this._repositionIndicator();
-            });
-        }
-    }
-
-    _addToPanel() {
-        if (!this._indicator) return;
-
-        try {
-            // Remove from current position first if it has a parent
-            const currentParent = this._indicator.get_parent();
-            if (currentParent) {
-                currentParent.remove_child(this._indicator);
-            }
-
-            // Get panel position from settings, with fallback
-            let position = 'right'; // default
-            if (this._settings) {
-                try {
-                    position = this._settings.get_string('panel-position');
-                } catch (e) {
-                    console.warn('[Ping Extension] Failed to get panel-position, using default:', e);
-                }
-            }
-
-            // Ensure panel boxes are available
-            if (!Main.panel._leftBox || !Main.panel._rightBox) {
-                console.warn('[Ping Extension] Panel boxes not ready, retrying...');
-                // Retry after a short delay
-                GLib.timeout_add(GLib.PRIORITY_DEFAULT, 100, () => {
-                    this._addToPanel();
-                    return GLib.SOURCE_REMOVE;
-                });
-                return;
-            }
-            
-            if (position === 'left') {
-                // Add to left box at the end
-                Main.panel._leftBox.add_child(this._indicator);
-            } else {
-                // Add to right box at the beginning
-                Main.panel._rightBox.insert_child_at_index(this._indicator, 0);
-            }
-        } catch (e) {
-            console.error('[Ping Extension] Failed to add indicator to panel:', e);
-        }
-    }
-
-    _repositionIndicator() {
-        if (!this._indicator) return;
-
-        try {
-            // Remove from current position
-            const parent = this._indicator.get_parent();
-            if (parent) {
-                parent.remove_child(this._indicator);
-            }
-
-            // Get new position with fallback
-            let position = 'right'; // default
-            if (this._settings) {
-                try {
-                    position = this._settings.get_string('panel-position');
-                } catch (e) {
-                    console.warn('[Ping Extension] Failed to get panel-position during reposition, using default:', e);
-                }
-            }
-            
-            // Add to new position
-            if (position === 'letleft') {
-                // Add to left box at the end
-                Main.panel._leftBox.add_child(this._indicator);
-            } else {
-                // Add to right box at the beginning
-                Main.panel._rightBox.insert_child_at_index(this._indicator, 0);
-            }
-        } catch (e) {
-            console.error('[Ping Extension] Failed to reposition indicator:', e);
-        }
-    }
-
-    disable() {
-        // Clean up timeout first to stop ping operations
-        if (this._indicator && this._indicator._pingTimeout) {
-            GLib.source_remove(this._indicator._pingTimeout);
-            this._indicator._pingTimeout = null;
-        }
-
-        // Disconnect settings signal handler
-        if (this._settingsConnection && this._settings) {
-            this._settings.disconnect(this._settingsConnection);
-            this._settingsConnection = null;
-        }
-
-        // Destroy UI components with proper cleanup
-        if (this._indicator) {
-            // Disconnect menu signals first
-            if (this._indicator._menuOpenStateId && this._indicator.menu) {
-                this._indicator.menu.disconnect(this._indicator._menuOpenStateId);
-                this._indicator._menuOpenStateId = null;
-            }
-
-            // Clean up individual UI components
-            if (this._indicator._chartArea) {
-                this._indicator._chartArea.destroy();
-                this._indicator._chartArea = null;
-            }
-
-            if (this._indicator._chartBox) {
-                this._indicator._chartBox.destroy();
-                this._indicator._chartBox = null;
-            }
-
-            if (this._indicator._statsLabel) {
-                this._indicator._statsLabel.destroy();
-                this._indicator._statsLabel = null;
-            }
-
-            if (this._indicator._label) {
-                this._indicator._label.destroy();
-                this._indicator._label = null;
-            }
-
-            // Clear ping history to prevent memory leaks
-            this._indicator._pingHistory = [];
-
-            // Finally destroy the main indicator
-            this._indicator.destroy();
-            this._indicator = null;
-        }
-
-        // Clear all references (GJS best practice)
-        this._settings = null;
-        this._settingsConnection = null;
     }
 }
