@@ -347,8 +347,6 @@ export default class PingMonitorExtension extends Extension {
                 }
             }
 
-            const startTime = GLib.get_monotonic_time();
-            
             // Simple ping using subprocess
             let proc = Gio.Subprocess.new(
                 ['ping', '-c', '1', '-W', '2', targetHost],
@@ -359,7 +357,7 @@ export default class PingMonitorExtension extends Extension {
                 if (!this._label || !this._pingHistory) return;
 
                 try {
-                    let [, stdout, stderr] = proc.communicate_utf8_finish(result);
+                    let [, stdout] = proc.communicate_utf8_finish(result);
                     let success = proc.get_successful();
                     
                     if (success && stdout) {
