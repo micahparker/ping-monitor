@@ -23,7 +23,9 @@ export default class PingMonitorExtension extends Extension {
         this._settingsConnection = null;
         this._pingHistory = [];
         this._pingTimeout = null;
+        this._displayUpdateTimeout = null;
         this._displayUpdateCounter = 0;
+        this._lastPingResult = null; // Store latest ping result for display updates
         this._menuOpenStateId = null;
         this._thresholdConnections = [];
         this._label = null;
@@ -37,6 +39,10 @@ export default class PingMonitorExtension extends Extension {
             medium: 100,
             high: 200
         };
+
+        // Cache interval settings
+        this._pingInterval = 1000; // milliseconds
+        this._displayUpdateInterval = 5000; // milliseconds
 
         // Cache display settings
         this._showYAxisLabels = true;
@@ -78,6 +84,7 @@ export default class PingMonitorExtension extends Extension {
 
         // Start ping monitoring
         this._startPingMonitoring();
+        this._startDisplayUpdates();
 
         // Listen for position changes only if settings are available
         this._settingsConnection = null;
@@ -118,6 +125,8 @@ export default class PingMonitorExtension extends Extension {
         if (this._settings) {
             try {
                 this._showYAxisLabels = this._settings.get_boolean('show-y-axis-labels');
+                this._pingInterval = this._settings.get_int('ping-interval');
+                this._displayUpdateInterval = this._settings.get_int('display-update-interval');
             } catch (e) {
                 console.warn('[Ping Extension] Failed to get display settings, using defaults:', e);
             }
@@ -140,6 +149,18 @@ export default class PingMonitorExtension extends Extension {
                 }),
                 this._settings.connect('changed::show-y-axis-labels', () => {
                     if (this._settings) this._updateDisplaySettings();
+                }),
+                this._settings.connect('changed::ping-interval', () => {
+                    if (this._settings) {
+                        this._updateDisplaySettings();
+                        this._restartPingMonitoring();
+                    }
+                }),
+                this._settings.connect('changed::display-update-interval', () => {
+                    if (this._settings) {
+                        this._updateDisplaySettings();
+                        this._restartPingMonitoring();
+                    }
                 })
             ];
         } catch (e) {
@@ -273,7 +294,7 @@ export default class PingMonitorExtension extends Extension {
     }
 
     _startPingMonitoring() {
-        this._pingTimeout = GLib.timeout_add(GLib.PRIORITY_DEFAULT, PING_INTERVAL, () => {
+        this._pingTimeout = GLib.timeout_add(GLib.PRIORITY_DEFAULT, this._pingInterval, () => {
             if (!this._label || !this._pingHistory) {
                 return GLib.SOURCE_REMOVE;
             }
@@ -281,6 +302,39 @@ export default class PingMonitorExtension extends Extension {
             this._performPing();
             return GLib.SOURCE_CONTINUE;
         });
+    }
+
+    _startDisplayUpdates() {
+        this._displayUpdateTimeout = GLib.timeout_add(GLib.PRIORITY_DEFAULT, this._displayUpdateInterval, () => {
+            if (!this._label) {
+                return GLib.SOURCE_REMOVE;
+            }
+            
+            // Update display with latest ping result
+            if (this._lastPingResult !== null) {
+                this._updateDisplay(this._lastPingResult.pingTime);
+            }
+            
+            return GLib.SOURCE_CONTINUE;
+        });
+    }
+
+    _restartPingMonitoring() {
+        // Stop current monitoring
+        if (this._pingTimeout) {
+            GLib.source_remove(this._pingTimeout);
+            this._pingTimeout = null;
+        }
+        
+        // Stop display updates
+        if (this._displayUpdateTimeout) {
+            GLib.source_remove(this._displayUpdateTimeout);
+            this._displayUpdateTimeout = null;
+        }
+        
+        // Start with new intervals
+        this._startPingMonitoring();
+        this._startDisplayUpdates();
     }
 
     _performPing() {
@@ -319,26 +373,26 @@ export default class PingMonitorExtension extends Extension {
                         if (match) {
                             let pingTime = parseFloat(match[1]);
                             this._addPingData(pingTime, true);
-                            this._updateDisplay(pingTime);
+                            this._lastPingResult = { pingTime: pingTime, success: true };
                         } else {
                             this._addPingData(null, false);
-                            this._updateDisplay(null);
+                            this._lastPingResult = { pingTime: null, success: false };
                         }
                     } else {
                         this._addPingData(null, false);
-                        this._updateDisplay(null);
+                        this._lastPingResult = { pingTime: null, success: false };
                     }
                 } catch (e) {
                     console.warn('[Ping Extension] Ping process error:', e);
                     this._addPingData(null, false);
-                    this._updateDisplay(null);
+                    this._lastPingResult = { pingTime: null, success: false };
                 }
             });
 
         } catch (e) {
             console.error('[Ping Extension] Failed to start ping process:', e);
             this._addPingData(null, false);
-            this._updateDisplay(null);
+            this._lastPingResult = { pingTime: null, success: false };
         }
     }
 
@@ -397,6 +451,12 @@ export default class PingMonitorExtension extends Extension {
         if (this._pingTimeout) {
             GLib.source_remove(this._pingTimeout);
             this._pingTimeout = null;
+        }
+
+        // Stop display updates
+        if (this._displayUpdateTimeout) {
+            GLib.source_remove(this._displayUpdateTimeout);
+            this._displayUpdateTimeout = null;
         }
 
         // Disconnect threshold listeners

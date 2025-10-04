@@ -148,5 +148,45 @@ export default class PingExtensionPreferences extends ExtensionPreferences {
     });
 
     displayGroup.add(yAxisLabelsRow);
+
+    // Create the ping interval row
+    const pingIntervalRow = new Adw.SpinRow({
+        title: 'Ping Interval',
+        subtitle: 'How often to perform ping tests (in milliseconds). Affects chart granularity.',
+        adjustment: new Gtk.Adjustment({
+            lower: 500,
+            upper: 30000,
+            step_increment: 100,
+            page_increment: 1000,
+            value: settings.get_int('ping-interval'),
+        }),
+    });
+
+    pingIntervalRow.connect('notify::value', (widget) => {
+        const newValue = widget.get_value();
+        settings.set_int('ping-interval', newValue);
+    });
+
+    displayGroup.add(pingIntervalRow);
+
+    // Create the display update interval row
+    const displayUpdateIntervalRow = new Adw.SpinRow({
+        title: 'Display Update Interval',
+        subtitle: 'How often to update the panel button display (in milliseconds)',
+        adjustment: new Gtk.Adjustment({
+            lower: 100,
+            upper: 10000,
+            step_increment: 100,
+            page_increment: 1000,
+            value: settings.get_int('display-update-interval'),
+        }),
+    });
+
+    displayUpdateIntervalRow.connect('notify::value', (widget) => {
+        const newValue = widget.get_value();
+        settings.set_int('display-update-interval', newValue);
+    });
+
+    displayGroup.add(displayUpdateIntervalRow);
     }
 }

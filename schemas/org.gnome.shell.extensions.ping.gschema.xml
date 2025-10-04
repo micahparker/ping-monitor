@@ -38,5 +38,17 @@
       <summary>Show Y-axis labels</summary>
       <description>Display ping time values on the Y-axis of the chart</description>
     </key>
+    <key name="ping-interval" type="i">
+      <default>1000</default>
+      <range min="500" max="30000"/>
+      <summary>Ping interval</summary>
+      <description>How often to perform ping tests (in milliseconds). Affects chart granularity.</description>
+    </key>
+    <key name="display-update-interval" type="i">
+      <default>5000</default>
+      <range min="100" max="10000"/>
+      <summary>Display update interval</summary>
+      <description>How often to update the panel button display (in milliseconds).</description>
+    </key>
   </schema>
 </schemalist>
