@@ -50,7 +50,7 @@ export default class PingMonitorExtension extends Extension {
 
     enable() {
         try {
-            this._settings = this.getSettings('org.gnome.shell.extensions.ping');
+            this._settings = this.getSettings();
         } catch (e) {
             console.error('[Ping Extension] Failed to load settings:', e);
             this._settings = null;
