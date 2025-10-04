@@ -32,12 +32,12 @@ This extension continuously monitors network latency by pinging 1.1.1.1 and disp
 
 2. **Install to extensions directory:**
    ```bash
-   cp -r . ~/.local/share/gnome-shell/extensions/ping@micahparker.com/
+   cp -r . ~/.local/share/gnome-shell/extensions/ping-monitor@micahparker.com/
    ```
 
 3. **Enable the extension:**
    ```bash
-   gnome-extensions enable ping@micahparker.com
+   gnome-extensions enable ping-monitor@micahparker.com
    ```
 
 4. **Restart GNOME Shell** (X11: `Alt+F2` → `r` → Enter, or logout/login for Wayland)
@@ -59,12 +59,12 @@ sudo dnf install gnome-extensions-app
 
 1. **Prepare the extensions directory:**
    ```bash
-   mkdir -p ~/.local/share/gnome-shell/extensions/ping@micahparker.com
+   mkdir -p ~/.local/share/gnome-shell/extensions/ping-monitor@micahparker.com
    ```
 
 2. **Copy extension files:**
    ```bash
-   cp -r * ~/.local/share/gnome-shell/extensions/ping@micahparker.com/
+   cp -r * ~/.local/share/gnome-shell/extensions/ping-monitor@micahparker.com/
    ```
 
 3. **Verify installation:**
@@ -74,12 +74,12 @@ sudo dnf install gnome-extensions-app
 
 4. **Enable via Extensions app or command line:**
    ```bash
-   gnome-extensions enable ping@micahparker.com
+   gnome-extensions enable ping-monitor@micahparker.com
    ```
 
 The extension directory structure:
 ```
-~/.local/share/gnome-shell/extensions/ping@micahparker.com/
+~/.local/share/gnome-shell/extensions/ping-monitor@micahparker.com/
 ├── extension.js          # Main extension logic
 ├── metadata.json         # Extension metadata
 ├── prefs.js             # Preferences dialog
@@ -95,7 +95,7 @@ The extension directory structure:
 
 Access extension preferences through:
 - Extensions app → Ping Monitor → Settings gear icon
-- Command: `gnome-extensions prefs ping@micahparker.com`
+- Command: `gnome-extensions prefs ping-monitor@micahparker.com`
 
 Available settings:
 - Ping interval timing

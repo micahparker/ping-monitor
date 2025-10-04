@@ -1,5 +1,5 @@
 {
-  "uuid": "ping@micahparker.com",
+  "uuid": "ping-monitor@micahparker.com",
   "name": "Ping Monitor",
   "description": "Monitor network latency with real-time ping statistics displayed in your top panel. Features live ping monitoring, visual status indicators, and historical chart view with customizable thresholds.",
   "shell-version": [

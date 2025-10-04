@@ -5,7 +5,8 @@
   "main": "extension.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "lint": "eslint . --ext .js"
+    "lint": "eslint . --ext .js",
+    "build": "node scripts/build.mjs"
   },
   "repository": {
     "type": "git",
