@@ -1,14 +1,13 @@
 {
   "uuid": "ping@micahparker.com",
   "name": "Ping Monitor",
-  "description": "Monitor ping times to 1.1.1.1 with a top bar indicator and time series chart",
-  "version": 1,
+  "description": "Monitor network latency with real-time ping statistics displayed in your top panel. Features live ping monitoring, visual status indicators, and historical chart view with customizable thresholds.",
   "shell-version": [
     "45",
     "46",
     "47",
     "48"
   ],
-  "url": "https://github.com/micahparker/gnome-ping-extension",
+  "url": "https://github.com/micahparker/ping-monitor",
   "settings-schema": "org.gnome.shell.extensions.ping"
 }

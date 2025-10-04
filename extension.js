@@ -338,10 +338,10 @@ export default class PingMonitorExtension extends Extension {
         }
 
         try {
-            let targetHost = '8.8.8.8'; // default
+            let targetHost = '1.1.1.1'; // default
             if (this._settings) {
                 try {
-                    targetHost = this._settings.get_string('target-host') || '8.8.8.8';
+                    targetHost = this._settings.get_string('target-host') || '1.1.1.1';
                 } catch (e) {
                     console.warn('[Ping Extension] Failed to get target-host, using default:', e);
                 }
@@ -431,13 +431,13 @@ export default class PingMonitorExtension extends Extension {
 
     _getPingColor(pingTime) {
         if (pingTime <= this._thresholds.low) {
-            return '#44ff44'; // green
+            return '#ffffff'; // white (excellent)
         } else if (pingTime <= this._thresholds.medium) {
-            return '#ffff44'; // yellow  
+            return '#ff8844'; // orange (warning)
         } else if (pingTime <= this._thresholds.high) {
-            return '#ff8844'; // orange
+            return '#ff8844'; // orange (degraded)
         } else {
-            return '#ff4444'; // red
+            return '#ff4444'; // red (critical)
         }
     }
 

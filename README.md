@@ -147,4 +147,4 @@ Issues and pull requests welcome at: https://github.com/micahparker/ping-monitor
 
 ## License
 
-Open source project. See repository for licensing terms.
+Distributed under the terms of the GPL-2.0-or-later. See the `LICENSE` file for details.
