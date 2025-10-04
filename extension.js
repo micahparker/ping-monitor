@@ -1,4 +1,3 @@
-import GObject from 'gi://GObject';
 import St from 'gi://St';
 import Clutter from 'gi://Clutter';
 import GLib from 'gi://GLib';
@@ -7,9 +6,7 @@ import Gio from 'gi://Gio';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as PanelMenu from 'resource:///org/gnome/shell/ui/panelMenu.js';
-import * as PopupMenu from 'resource:///org/gnome/shell/ui/popupMenu.js';
 
-const PING_INTERVAL = 1000; // 1 second
 const HISTORY_LENGTH = 300; // 5 minutes at 1 second intervals
 
 export default class PingMonitorExtension extends Extension {
