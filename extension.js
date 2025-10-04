@@ -216,8 +216,9 @@ export default class PingMonitorExtension extends Extension {
                 }
             }
 
-            // Use simple but position-aware approach (avoid complex cleanup that breaks the indicator)
-            Main.panel.addToStatusArea(this.uuid, this._indicator, 0, position);
+            // Position at end of each section: -1 for left (rightmost), 0 for right (leftmost)
+            let index = (position === 'left') ? -1 : 0;
+            Main.panel.addToStatusArea(this.uuid, this._indicator, index, position);
         } catch (e) {
             console.error('[Ping Extension] Failed to add to panel:', e);
         }
@@ -260,8 +261,9 @@ export default class PingMonitorExtension extends Extension {
                     currentParent.remove_child(this._indicator);
                 }
                 
-                // Add to new position
-                Main.panel.addToStatusArea(this.uuid, this._indicator, 0, newPosition);
+                // Add to new position with proper index
+                let index = (newPosition === 'left') ? -1 : 0;
+                Main.panel.addToStatusArea(this.uuid, this._indicator, index, newPosition);
                 console.log('[Ping Extension] Successfully repositioned to:', newPosition);
             }
         } catch (e) {
