@@ -266,7 +266,6 @@ export default class PingMonitorExtension extends Extension {
 
             // Only reposition if the position actually changed
             if (currentPosition !== newPosition) {
-                console.log(`[Ping Extension] Repositioning from ${currentPosition} to ${newPosition}`);
                 
                 // Remove from status area cleanly
                 if (Main.panel.statusArea[this.uuid]) {
@@ -282,7 +281,6 @@ export default class PingMonitorExtension extends Extension {
                 // Add to new position with proper index
                 let index = (newPosition === 'left') ? -1 : 0;
                 Main.panel.addToStatusArea(this.uuid, this._indicator, index, newPosition);
-                console.log('[Ping Extension] Successfully repositioned to:', newPosition);
             }
         } catch (e) {
             console.error('[Ping Extension] Failed to reposition indicator:', e);
