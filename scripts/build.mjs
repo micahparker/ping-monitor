@@ -111,7 +111,8 @@ async function main() {
         await runCommand('glib-compile-schemas', ['schemas'], {cwd: bundleRoot});
     }
 
-    await runCommand('zip', ['-r', `${uuid}.zip`, uuid], {cwd: distDir});
+    await runCommand('zip', ['-r', outputZip, '.'], {cwd: bundleRoot});
+    await fs.rm(bundleRoot, {recursive: true, force: true});
     console.log(`Created ${outputZip}`);
 }
 
